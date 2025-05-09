@@ -55,3 +55,8 @@ variable "instance_type" {
   type        = string
   default     = "t3.large"
 }
+
+variable "bastion_key_name" {
+  description = "Name of the existing EC2 KeyPair to use for SSH into the bastion"
+  type        = string
+}
