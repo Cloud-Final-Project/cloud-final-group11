@@ -14,6 +14,24 @@ variable "cluster_name" {
   default     = "otel-demo-cluster"
 }
 
+variable "vpc_cidr" {
+  description = "CIDR block for the custom VPC (/23 = 512 IPs)"
+  type        = string
+  default     = "10.0.0.0/23"
+}
+
+variable "public_subnet_cidrs" {
+  description = "CIDR blocks for the two public subnets (/24 each = 256 IPs)"
+  type        = list(string)
+  default     = ["10.0.0.0/24", "10.0.1.0/24"]
+}
+
+variable "availability_zones" {
+  description = "AZs for each public subnet"
+  type        = list(string)
+  default     = ["us-east-2a", "us-east-2b"]
+}
+
 variable "node_count" {
   description = "Desired number of EKS worker nodes at creation"
   type        = number
