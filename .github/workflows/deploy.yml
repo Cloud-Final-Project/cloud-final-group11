@@ -41,13 +41,7 @@ jobs:
       run: |
         helm upgrade --install otel-demo open-telemetry/opentelemetry-demo \
           --namespace otel-helm --create-namespace \
-          --version 0.20.1 \
-          --set frontend.enabled=true \
-          --set grafana.enabled=false \
-          --set jaeger.enabled=false \
-          --set loki.enabled=false \
-          --set tempo.enabled=false \
-          --set elasticsearch.enabled=false || helm rollback otel-demo
+          --version 0.20.1 || helm rollback otel-demo
 
     - name: Verify Deployment
       run: kubectl get all -n otel-helm
