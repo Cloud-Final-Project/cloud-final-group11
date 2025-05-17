@@ -169,31 +169,26 @@ resource "aws_security_group" "bastion_sg" {
   vpc_id      = aws_vpc.eks.id
 
   ingress {
-    description = "SSH from anywhere"
+    description = "SSH"
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
-  
-  # HTTP access
   ingress {
+    description = "HTTP"
     from_port   = 80
     to_port     = 80
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
-    description = "HTTP access"
   }
-
-  # HTTPS access
   ingress {
+    description = "HTTPS"
     from_port   = 443
     to_port     = 443
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
-    description = "HTTPS access"
   }
-
   egress {
     description = "All outbound"
     from_port   = 0
@@ -203,7 +198,7 @@ resource "aws_security_group" "bastion_sg" {
   }
 }
 
-# 9.5) Launch the t2.micro bastion with that profile
+# 9.5) Launch the t2.micro bastion with automated bootstrap
 resource "aws_instance" "bastion" {
   ami                         = data.aws_ami.amazon_linux2.id
   instance_type               = "t2.micro"
@@ -214,6 +209,8 @@ resource "aws_instance" "bastion" {
 
   iam_instance_profile = aws_iam_instance_profile.bastion_profile.name
 
+  user_data = file("${path.module}/bootstrap.sh")
+
   tags = {
     Name = "${var.cluster_name}-bastion"
   }
@@ -223,4 +220,23 @@ resource "aws_instance" "bastion" {
 output "bastion_public_ip" {
   description = "Public IP of the SSH bastion host"
   value       = aws_instance.bastion.public_ip
+}
+
+##########################
+# Fetch the EKS VPC and public subnets
+##########################
+
+data "aws_vpc" "eks" {
+  id = aws_vpc.eks.id
+}
+
+data "aws_subnets" "public" {
+  filter {
+    name   = "vpc-id"
+    values = [data.aws_vpc.eks.id]
+  }
+  filter {
+    name   = "tag:Type"
+    values = ["public"]
+  }
 }
