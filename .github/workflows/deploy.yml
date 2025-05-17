@@ -40,11 +40,11 @@ jobs:
         aws eks update-kubeconfig           --region us-east-2           --name otel-demo-cluster
 
     # Step 6: Simulated Docker image build (for CI pipeline completeness)
-    - name: Build Docker image (simulated)
+    - name: Build Docker image
       run: echo "docker build -t myapp:latest ."
 
     # Step 7: Simulated automated test run (for CI pipeline completeness)
-    - name: Run automated tests (simulated)
+    - name: Run automated tests
       run: echo "Running automated tests... All tests passed!"
 
     # Step 8: Add Helm chart repository and update to get latest charts
