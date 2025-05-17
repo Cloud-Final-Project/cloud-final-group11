@@ -53,7 +53,7 @@ variable "max_node_count" {
 variable "instance_type" {
   description = "EC2 instance type for EKS worker nodes"
   type        = string
-  default     = "t3.large"
+  default     = "t2.xlarge"
 }
 
 variable "bastion_key_name" {
