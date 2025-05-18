@@ -1,5 +1,5 @@
 ##############################
-# terraform/phase1-eks/main.tf
+# terraform/phase1-eks/main.tf (UPDATED)
 ##############################
 
 # 1) AWS Provider
@@ -18,7 +18,7 @@ resource "aws_vpc" "eks" {
   }
 }
 
-# 3) Two public subnets (one per AZ)
+# 3) Public subnets (one per AZ)
 resource "aws_subnet" "public" {
   count                   = length(var.public_subnet_cidrs)
   vpc_id                  = aws_vpc.eks.id
@@ -28,6 +28,21 @@ resource "aws_subnet" "public" {
 
   tags = {
     Name = "${var.cluster_name}-public-${count.index}"
+    Type = "public"
+  }
+}
+
+# 3a) Private subnets (one per AZ)
+resource "aws_subnet" "private" {
+  count                   = length(var.private_subnet_cidrs)
+  vpc_id                  = aws_vpc.eks.id
+  cidr_block              = var.private_subnet_cidrs[count.index]
+  availability_zone       = var.availability_zones[count.index]
+  map_public_ip_on_launch = false
+
+  tags = {
+    Name = "${var.cluster_name}-private-${count.index}"
+    Type = "private"
   }
 }
 
@@ -59,7 +74,45 @@ resource "aws_route_table_association" "public_assoc" {
   route_table_id = aws_route_table.public_rt.id
 }
 
-# 5) IAM Role for EKS control plane
+# 4a) Allocate Elastic IPs for NAT
+resource "aws_eip" "nat" {
+  count = length(aws_subnet.public)
+  domain = "vpc"
+}
+
+# 4b) NAT Gateways in each AZ (for private subnet Internet egress)
+resource "aws_nat_gateway" "nat" {
+  count         = length(aws_subnet.public)
+  allocation_id = aws_eip.nat[count.index].id
+  subnet_id     = aws_subnet.public[count.index].id
+
+  tags = {
+    Name = "${var.cluster_name}-nat-${count.index}"
+  }
+}
+
+# 4c) Private Route Tables using NAT
+resource "aws_route_table" "private_rt" {
+  count  = length(aws_subnet.private)
+  vpc_id = aws_vpc.eks.id
+
+  route {
+    cidr_block     = "0.0.0.0/0"
+    nat_gateway_id = aws_nat_gateway.nat[count.index].id
+  }
+
+  tags = {
+    Name = "${var.cluster_name}-private-rt-${count.index}"
+  }
+}
+
+resource "aws_route_table_association" "private_assoc" {
+  count          = length(aws_subnet.private)
+  subnet_id      = aws_subnet.private[count.index].id
+  route_table_id = aws_route_table.private_rt[count.index].id
+}
+
+# 5) IAM Role for EKS control plane (unchanged)
 data "aws_iam_policy_document" "eks_assume_role" {
   statement {
     actions    = ["sts:AssumeRole"]
@@ -80,17 +133,21 @@ resource "aws_iam_role_policy_attachment" "eks_cluster_policy" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonEKSClusterPolicy"
 }
 
-# 6) EKS Control Plane
+# 6) EKS Control Plane, now spanning both subnet types
 resource "aws_eks_cluster" "this" {
   name     = var.cluster_name
   role_arn = aws_iam_role.eks_cluster_role.arn
 
   vpc_config {
-    subnet_ids = aws_subnet.public[*].id
+    # include *both* public and private subnets for control-plane ENIs
+    subnet_ids = concat(
+      aws_subnet.public[*].id,
+      aws_subnet.private[*].id
+    )
   }
 }
 
-# 7) IAM Role for worker nodes + required policies
+# 7) IAM Role for worker nodes + required policies (unchanged)
 data "aws_iam_policy_document" "node_assume_role" {
   statement {
     actions    = ["sts:AssumeRole"]
@@ -121,12 +178,12 @@ resource "aws_iam_role_policy_attachment" "node_ecr_readonly" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
 }
 
-# 8) Managed node group with auto-scaling
+# 8) Managed node group in private subnets for improved isolation
 resource "aws_eks_node_group" "workers" {
   cluster_name    = aws_eks_cluster.this.name
   node_group_name = "${var.cluster_name}-workers"
   node_role_arn   = aws_iam_role.eks_node_role.arn
-  subnet_ids      = aws_subnet.public[*].id
+  subnet_ids      = aws_subnet.private[*].id
 
   scaling_config {
     desired_size = var.node_count
@@ -138,21 +195,17 @@ resource "aws_eks_node_group" "workers" {
 }
 
 ##############################
-# 9) Bastion Host for SSH access (using existing EKS_Client role)
+# 9) Bastion Host for SSH access (unchanged)
 ##############################
-
-# 9.1) Reference the existing IAM role
 data "aws_iam_role" "eks_client_role" {
   name = "EKS_Client"
 }
 
-# 9.2) Create an instance profile for that role
 resource "aws_iam_instance_profile" "bastion_profile" {
   name = "${var.cluster_name}-bastion-profile"
   role = data.aws_iam_role.eks_client_role.name
 }
 
-# 9.3) Fetch the latest Amazon Linux 2 AMI
 data "aws_ami" "amazon_linux2" {
   most_recent = true
   owners      = ["amazon"]
@@ -162,7 +215,6 @@ data "aws_ami" "amazon_linux2" {
   }
 }
 
-# 9.4) Security Group allowing SSH from anywhere
 resource "aws_security_group" "bastion_sg" {
   name        = "${var.cluster_name}-bastion-sg"
   description = "Allow SSH from anywhere"
@@ -190,7 +242,6 @@ resource "aws_security_group" "bastion_sg" {
     cidr_blocks = ["0.0.0.0/0"]
   }
   egress {
-    description = "All outbound"
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
@@ -198,7 +249,6 @@ resource "aws_security_group" "bastion_sg" {
   }
 }
 
-# 9.5) Launch the t2.micro bastion with automated bootstrap
 resource "aws_instance" "bastion" {
   ami                         = data.aws_ami.amazon_linux2.id
   instance_type               = "t2.micro"
@@ -214,7 +264,7 @@ resource "aws_instance" "bastion" {
   }
 }
 
-# 9.6) Expose the bastion's public IP
+# Output the bastion IP for SSH access
 output "bastion_public_ip" {
   description = "Public IP of the SSH bastion host"
   value       = aws_instance.bastion.public_ip
