@@ -42,7 +42,7 @@ jobs:
           --name otel-demo-cluster
 
     # Step 6: [Simulated] Docker Build Step – Using Helm's Prebuilt Images
-    - name: [Simulated] Docker build step – Using Helm's prebuilt images
+    - name: "[Simulated] Docker build step – Using Helm's prebuilt images"
       run: echo "Using official prebuilt images from Helm chart. No custom Dockerfile required."
 
     # Step 7: Simulated Automated Tests – Placeholder for CI pipeline
