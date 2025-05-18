@@ -1,0 +1,33 @@
+Commands for phase 2:  Integrating Helm for Deployment
+
+curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
+
+chmod 700 get_helm.sh
+
+./get_helm.sh
+
+helm version
+
+helm repo add open-telemetry https://open-telemetry.github.io/opentelemetry-helm-charts
+
+helm repo update
+
+kubectl create namespace otel-helm
+
+helm install otel-demo open-telemetry/opentelemetry-demo --namespace otel-helm
+
+helm list -n otel-helm
+
+kubectl get all -n otel-helm
+
+helm upgrade otel-demo open-telemetry/opentelemetry-demo --namespace otel-helm --set components.frontend.replicas=3
+
+helm upgrade otel-demo open-telemetry/opentelemetry-demo --namespace otel-helm --set components.frontend.resources.requests.cpu=200m --set components.frontend.resources.requests.memory=250Mi
+
+kubectl get deployment frontend -n otel-helm
+
+kubectl get deployment frontend -n otel-helm -o yaml | grep -A10 resources
+
+helm rollback otel-demo 1 --namespace otel-helm
+
+kubectl get deployment frontend -n otel-helm -o yaml | grep -A10 resources

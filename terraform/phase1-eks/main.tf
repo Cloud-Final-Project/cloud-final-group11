@@ -209,8 +209,6 @@ resource "aws_instance" "bastion" {
 
   iam_instance_profile = aws_iam_instance_profile.bastion_profile.name
 
-  user_data = file("${path.module}/bootstrap.sh")
-
   tags = {
     Name = "${var.cluster_name}-bastion"
   }
