@@ -55,12 +55,13 @@ jobs:
         helm repo add open-telemetry https://open-telemetry.github.io/opentelemetry-helm-charts
         helm repo update
 
-    # Step 9: Deploy OpenTelemetry demo using Helm with rollback on failure
-    - name: Deploy with Helm
+    # Step 9: Deploy OpenTelemetry demo using Helm with rollback on failure (Simulated Failure)
+    - name: Deploy with Helm (Rollback Simulation)
       run: |
         helm upgrade --install otel-demo open-telemetry/opentelemetry-demo \
           --namespace otel-helm --create-namespace \
-          --version 0.20.1 || helm rollback otel-demo
+          --version 0.20.1 \
+          --set image.repository=invalid-repo/otel-demo || helm rollback otel-demo
 
     # Step 10: Verify the deployment by listing all resources in the namespace
     - name: Verify Deployment
