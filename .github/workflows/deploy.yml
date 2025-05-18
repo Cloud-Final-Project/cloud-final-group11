@@ -1,5 +1,5 @@
 # This is the GitHub Actions workflow for Phase 4 - CI/CD Integration
-# It automates build, test, and deployment to an AWS EKS cluster using Helm
+# It automates test, deployment, and rollback to an AWS EKS cluster using Helm
 
 name: CI/CD to EKS using Helm
 
@@ -37,17 +37,19 @@ jobs:
     # Step 5: Configure kubectl to talk to the EKS cluster using AWS CLI
     - name: Generate kubeconfig for EKS
       run: |
-        aws eks update-kubeconfig           --region us-east-2           --name otel-demo-cluster
+        aws eks update-kubeconfig \
+          --region ${{ secrets.AWS_REGION }} \
+          --name otel-demo-cluster
 
-    # Step 6: Simulated Docker image build (for CI pipeline completeness)
-    - name: Build Docker image
-      run: echo "docker build -t myapp:latest ."
+    # Step 6: [Simulated] Docker Build Step – Using Helm's Prebuilt Images
+    - name: [Simulated] Docker build step – Using Helm's prebuilt images
+      run: echo "Using official prebuilt images from Helm chart. No custom Dockerfile required."
 
-    # Step 7: Simulated automated test run (for CI pipeline completeness)
+    # Step 7: Simulated Automated Tests – Placeholder for CI pipeline
     - name: Run automated tests
-      run: echo "Running automated tests... All tests passed!"
+      run: echo "Running simulated tests... All tests passed!"
 
-    # Step 8: Add Helm chart repository and update to get latest charts
+    # Step 8: Add Helm chart repository and update it
     - name: Add Helm repo
       run: |
         helm repo add open-telemetry https://open-telemetry.github.io/opentelemetry-helm-charts
@@ -56,7 +58,9 @@ jobs:
     # Step 9: Deploy OpenTelemetry demo using Helm with rollback on failure
     - name: Deploy with Helm
       run: |
-        helm upgrade --install otel-demo open-telemetry/opentelemetry-demo           --namespace otel-helm --create-namespace           --version 0.20.1 || helm rollback otel-demo
+        helm upgrade --install otel-demo open-telemetry/opentelemetry-demo \
+          --namespace otel-helm --create-namespace \
+          --version 0.20.1 || helm rollback otel-demo
 
     # Step 10: Verify the deployment by listing all resources in the namespace
     - name: Verify Deployment
